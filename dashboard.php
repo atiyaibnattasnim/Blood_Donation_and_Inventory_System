@@ -17,11 +17,74 @@ $role_display = [
     'recipient' => 'Recipient',
     'hospital_rep' => 'Hospital Representative',
 ][$role] ?? 'User';
+
+// Fetch user profile information
+$stmt = $conn->prepare("
+    SELECT u.first_name, u.last_name, u.email, u.city, u.street, u.postal_code, u.date_of_birth, 
+           lc.account_status
+    FROM user u
+    JOIN login_credentials lc ON u.user_id = lc.user_id
+    WHERE u.user_id = ?
+");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$user_result = $stmt->get_result();
+$user_data = $user_result->num_rows > 0 ? $user_result->fetch_assoc() : [];
+$stmt->close();
+
+// Fetch phone numbers
+$phone_numbers = [];
+$stmt = $conn->prepare("SELECT phone_number FROM user_phone_no WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$phone_result = $stmt->get_result();
+while ($row = $phone_result->fetch_assoc()) {
+    $phone_numbers[] = $row['phone_number'];
+}
+$stmt->close();
+
+// Fetch role-specific information
+$role_data = [];
+if ($role === 'donor') {
+    $stmt = $conn->prepare("SELECT blood_group, rh_factor, eligibility_status, donation_count FROM donor WHERE user_id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $role_result = $stmt->get_result();
+    $role_data = $role_result->num_rows > 0 ? $role_result->fetch_assoc() : [];
+    $stmt->close();
+} elseif ($role === 'recipient') {
+    $stmt = $conn->prepare("
+        SELECT r.blood_group, r.rh_factor, r.medical_condition, r.urgency_level, r.hospital_id, h.name AS hospital_name
+        FROM recipient r
+        LEFT JOIN hospital h ON r.hospital_id = h.hospital_id
+        WHERE r.user_id = ?
+    ");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $role_result = $stmt->get_result();
+    $role_data = $role_result->num_rows > 0 ? $role_result->fetch_assoc() : [];
+    $stmt->close();
+} elseif ($role === 'hospital_rep') {
+    $stmt = $conn->prepare("
+        SELECT hr.hospital_id, hr.department, hr.designation, hr.license_id, h.name AS hospital_name
+        FROM hospital_representative hr
+        JOIN hospital h ON hr.hospital_id = h.hospital_id
+        WHERE hr.user_id = ?
+    ");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $role_result = $stmt->get_result();
+    $role_data = $role_result->num_rows > 0 ? $role_result->fetch_assoc() : [];
+    $stmt->close();
+} elseif ($role === 'admin') {
+    $role_data = ['admin_status' => 'Active Administrator'];
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8"/>
     <title>Dashboard - Blood Donation System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -54,8 +117,21 @@ $role_display = [
             transition: background-color 0.3s ease;
             font-weight: 600;
         }
+
         .btn-maroon:hover, .btn-maroon:focus {
             background-color: var(--maroon-dark);
+            color: white;
+        }
+
+        .btn-danger-maroon {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-danger-maroon:hover, .btn-danger-maroon:focus {
+            background-color: #d32f2f;
             color: white;
         }
 
@@ -71,11 +147,11 @@ $role_display = [
             font-weight: 600;
         }
 
-        .welcome-section {
+        .welcome-section, .profile-section {
             background: white;
             border-radius: 0.5rem;
             box-shadow: 0 4px 8px rgba(128, 0, 0, 0.1);
-            padding: 1.5rem;
+            padding: 2rem;
             margin-bottom: 2rem;
         }
 
@@ -117,8 +193,46 @@ $role_display = [
             color: #666;
             font-size: 0.9rem;
         }
+
+        .profile-section h4 {
+            color: var(--maroon);
+            margin-bottom: 1.5rem;
+        }
+
+        .profile-section h5 {
+            color: var(--maroon-dark);
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            border-bottom: 2px solid var(--maroon-light);
+            padding-bottom: 0.5rem;
+        }
+
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .profile-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .profile-item strong {
+            color: var(--maroon-dark);
+            display: block;
+            margin-bottom: 0.3rem;
+        }
+
+        .profile-actions {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
     </style>
-    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script> <!-- FontAwesome Icons -->
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg">
@@ -139,17 +253,20 @@ $role_display = [
 
     <ul class="nav nav-tabs mb-4" id="roleTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboard" type="button" role="tab" aria-controls="dashboard" aria-selected="true">Dashboard</button>
+            <button class="nav-link active" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboard" type="button"
+                    role="tab" aria-controls="dashboard" aria-selected="true">Dashboard
+            </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab" aria-controls="profile" aria-selected="false">Profile</button>
+            <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab"
+                    aria-controls="profile" aria-selected="false">Profile
+            </button>
         </li>
     </ul>
 
     <div class="tab-content" id="roleTabsContent">
         <div class="tab-pane fade show active" id="dashboard" role="tabpanel" aria-labelledby="dashboard-tab">
             <div class="row g-4">
-
                 <?php if ($role === 'donor'): ?>
                     <div class="col-md-4">
                         <div class="card" onclick="location.href='view_donations.php'">
@@ -181,7 +298,6 @@ $role_display = [
                             </div>
                         </div>
                     </div>
-
                 <?php elseif ($role === 'recipient'): ?>
                     <div class="col-md-6">
                         <div class="card" onclick="location.href='make_request.php'">
@@ -203,7 +319,6 @@ $role_display = [
                             </div>
                         </div>
                     </div>
-
                 <?php elseif ($role === 'hospital_rep'): ?>
                     <div class="col-md-3">
                         <div class="card" onclick="location.href='view_requests.php'">
@@ -245,7 +360,6 @@ $role_display = [
                             </div>
                         </div>
                     </div>
-
                 <?php elseif ($role === 'admin'): ?>
                     <div class="col-md-4">
                         <div class="card" onclick="location.href='manage_hospitals.php'">
@@ -260,15 +374,113 @@ $role_display = [
                 <?php else: ?>
                     <p>Please contact the administrator to assign a role.</p>
                 <?php endif; ?>
-
             </div>
         </div>
         <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
-            <div class="card p-4">
+            <div class="profile-section">
                 <h4>Profile Information</h4>
-                <p><strong>Name:</strong> <?= htmlspecialchars($full_name) ?></p>
-                <p><strong>Role:</strong> <?= htmlspecialchars($role_display) ?></p>
-                <!-- You can add more profile details here -->
+                <h5>Personal Information</h5>
+                <div class="profile-grid">
+                    <div class="profile-item">
+                        <strong>Name</strong>
+                        <span><?= htmlspecialchars($user_data['first_name'] . ' ' . $user_data['last_name']) ?></span>
+                    </div>
+                    <div class="profile-item">
+                        <strong>Email</strong>
+                        <span><?= htmlspecialchars($user_data['email'] ?? 'Not set') ?></span>
+                    </div>
+                    <div class="profile-item">
+                        <strong>Phone Number(s)</strong>
+                        <span><?= htmlspecialchars(!empty($phone_numbers) ? implode(', ', $phone_numbers) : 'Not set') ?></span>
+                    </div>
+                    <div class="profile-item">
+                        <strong>City</strong>
+                        <span><?= htmlspecialchars($user_data['city'] ?? 'Not set') ?></span>
+                    </div>
+                    <div class="profile-item">
+                        <strong>Street</strong>
+                        <span><?= htmlspecialchars($user_data['street'] ?? 'Not set') ?></span>
+                    </div>
+                    <div class="profile-item">
+                        <strong>Postal Code</strong>
+                        <span><?= htmlspecialchars($user_data['postal_code'] ?? 'Not set') ?></span>
+                    </div>
+                    <div class="profile-item">
+                        <strong>Date of Birth</strong>
+                        <span><?= htmlspecialchars($user_data['date_of_birth'] ? date('F j, Y', strtotime($user_data['date_of_birth'])) : 'Not set') ?></span>
+                    </div>
+                    <div class="profile-item">
+                        <strong>Account Status</strong>
+                        <span><?= htmlspecialchars($user_data['account_status'] ?? 'Not set') ?></span>
+                    </div>
+                    <div class="profile-item">
+                        <strong>Registered as</strong>
+                        <span><?= htmlspecialchars($role_display) ?></span>
+                    </div>
+                    <?php if ($role === 'donor' && !empty($role_data)): ?>
+                        <div class="profile-item">
+                            <strong>Blood Group</strong>
+                            <span><?= htmlspecialchars($role_data['blood_group'] . $role_data['rh_factor']) ?></span>
+                        </div>
+                        <div class="profile-item">
+                            <strong>Eligibility Status</strong>
+                            <span><?= htmlspecialchars($role_data['eligibility_status'] ?? 'Not set') ?></span>
+                        </div>
+                        <div class="profile-item">
+                            <strong>Donation Count</strong>
+                            <span><?= htmlspecialchars($role_data['donation_count'] ?? '0') ?></span>
+                        </div>
+                    <?php elseif ($role === 'recipient' && !empty($role_data)): ?>
+                        <div class="profile-item">
+                            <strong>Blood Group</strong>
+                            <span><?= htmlspecialchars($role_data['blood_group'] . $role_data['rh_factor']) ?></span>
+                        </div>
+                        <div class="profile-item">
+                            <strong>Medical Condition</strong>
+                            <span><?= htmlspecialchars($role_data['medical_condition'] ?: 'Not set') ?></span>
+                        </div>
+                        <div class="profile-item">
+                            <strong>Urgency Level</strong>
+                            <span><?= htmlspecialchars($role_data['urgency_level'] ?? 'Not set') ?></span>
+                        </div>
+                        <div class="profile-item">
+                            <strong>Hospital</strong>
+                            <span><?= htmlspecialchars($role_data['hospital_name'] ?? 'Not set') ?></span>
+                        </div>
+                    <?php elseif ($role === 'hospital_rep' && !empty($role_data)): ?>
+                        <div class="profile-item">
+                            <strong>Hospital</strong>
+                            <span><?= htmlspecialchars($role_data['hospital_name'] ?? 'Not set') ?></span>
+                        </div>
+                        <div class="profile-item">
+                            <strong>Department</strong>
+                            <span><?= htmlspecialchars($role_data['department'] ?? 'Not set') ?></span>
+                        </div>
+                        <div class="profile-item">
+                            <strong>Designation</strong>
+                            <span><?= htmlspecialchars($role_data['designation'] ?? 'Not set') ?></span>
+                        </div>
+                        <div class="profile-item">
+                            <strong>License ID</strong>
+                            <span><?= htmlspecialchars($role_data['license_id'] ?? 'Not set') ?></span>
+                        </div>
+                    <?php elseif ($role === 'admin'): ?>
+                        <div class="profile-item">
+                            <strong>Admin Status</strong>
+                            <span><?= htmlspecialchars($role_data['admin_status']) ?></span>
+                        </div>
+                    <?php else: ?>
+                        <div class="profile-item">
+                            <strong>Additional Info</strong>
+                            <span>No additional role-specific information available.</span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="profile-actions">
+                    <a href="edit_profile.php" class="btn btn-maroon">Edit Profile</a>
+                    <a href="delete_profile.php" class="btn btn-danger-maroon"
+                       onclick="return confirm('Are you sure you want to delete your profile? This action cannot be undone.');">Delete Profile</a>
+                </div>
             </div>
         </div>
     </div>
