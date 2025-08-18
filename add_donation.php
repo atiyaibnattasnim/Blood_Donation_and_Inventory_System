@@ -2,57 +2,73 @@
 session_start();
 include 'db.php';
 
-// Redirect if not logged in or not donor
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'donor') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'donor') {
     header("Location: login.php");
     exit;
 }
 
-$user_id = $_SESSION['user_id'];
 $errors = [];
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $event_id = $_POST['event_id'] ?? '';
-    $blood_unit_id = $_POST['blood_unit_id'] ?? '';
     $donation_date = $_POST['donation_date'] ?? '';
     $quantity_ml = $_POST['quantity_ml'] ?? '';
-    $remarks = trim($_POST['remarks'] ?? '');
+    $remarks = $_POST['remarks'] ?? '';
 
-    // Validation
-    if (empty($event_id) || empty($blood_unit_id) || empty($donation_date) || empty($quantity_ml)) {
+    // Validate
+    if (!$event_id || !$donation_date || !$quantity_ml) {
         $errors[] = "Please fill all required fields.";
-    } elseif (!is_numeric($quantity_ml) || $quantity_ml <= 0) {
-        $errors[] = "Quantity must be a positive number.";
-    } else {
-        // Insert into donation table
-        $stmt = $conn->prepare("INSERT INTO donation (user_id, event_id, blood_unit_id, donation_date, quantity_ml, remarks) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("iiisis", $user_id, $event_id, $blood_unit_id, $donation_date, $quantity_ml, $remarks);
-        if ($stmt->execute()) {
-            $success = "Donation recorded successfully.";
-        } else {
-            $errors[] = "Failed to record donation. Please try again.";
-        }
+    } elseif (!filter_var($quantity_ml, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]])) {
+        $errors[] = "Quantity must be a positive integer.";
+    }
+
+    if (empty($errors)) {
+        // Fetch donor's blood group and rh_factor
+        $stmt = $conn->prepare("SELECT blood_group, rh_factor FROM donor WHERE user_id = ?");
+        $stmt->bind_param("i", $_SESSION['user_id']);
+        $stmt->execute();
+        $donor_data = $stmt->get_result()->fetch_assoc();
         $stmt->close();
+
+        if (!$donor_data) {
+            $errors[] = "Donor profile not found.";
+        } else {
+            // Create blood_unit first (assume a default storage_id=1; implement proper selection later)
+            $collection_date = $donation_date;
+            $expiry_date = date('Y-m-d', strtotime($collection_date . ' + 42 days')); // Standard blood expiry ~42 days
+            $storage_id = 1; // TODO: Let user select or auto-assign based on event/hospital
+
+            $stmt = $conn->prepare("INSERT INTO blood_unit (blood_group, rh_factor, collection_date, expiry_date, status, storage_id) 
+                                    VALUES (?, ?, ?, ?, 'available', ?)");
+            $stmt->bind_param("sssss", $donor_data['blood_group'], $donor_data['rh_factor'], $collection_date, $expiry_date, $storage_id);
+            $stmt->execute();
+            $blood_unit_id = $stmt->insert_id;
+            $stmt->close();
+
+            // Now insert into donation
+            $stmt = $conn->prepare("INSERT INTO donation (user_id, event_id, blood_unit_id, donation_date, quantity_ml, remarks) 
+                                    VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("iiisis", $_SESSION['user_id'], $event_id, $blood_unit_id, $donation_date, $quantity_ml, $remarks);
+
+            if ($stmt->execute()) {
+                // Update donor donation_count
+                $conn->query("UPDATE donor SET donation_count = donation_count + 1 WHERE user_id = {$_SESSION['user_id']}");
+
+                $success = "Donation added successfully!";
+            } else {
+                $errors[] = "Failed to add donation: " . $stmt->error;
+            }
+            $stmt->close();
+        }
     }
 }
 
-// Fetch events for dropdown
+// Fetch events for dropdown (populate event_ table first via admin page)
 $events = [];
-$result = $conn->query("SELECT event_id, event_name FROM event_ ORDER BY event_date DESC");
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $events[] = $row;
-    }
-}
-
-// Fetch available blood units for dropdown (assuming status = 'available')
-$blood_units = [];
-$result = $conn->query("SELECT blood_unit_id, blood_group, rh_factor FROM blood_unit WHERE status = 'available'");
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $blood_units[] = $row;
-    }
+$result = $conn->query("SELECT event_id, event_name, location FROM event_");
+while ($row = $result->fetch_assoc()) {
+    $events[] = $row;
 }
 ?>
 
@@ -63,94 +79,53 @@ if ($result) {
     <title>Add Donation</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <style>
-        .bg-maroon {
-            background-color: #800000 !important;
-        }
-        .btn-maroon {
-            background-color: #800000;
-            color: white;
-        }
-        .btn-maroon:hover {
-            background-color: #a52a2a;
-            color: white;
-        }
+        :root { --maroon: #800000; }
+        .btn-maroon { background-color: var(--maroon); color: white; }
+        .btn-maroon:hover { background-color: #5a0000; }
     </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-maroon">
+<nav class="navbar navbar-expand-lg navbar-dark" style="background-color: var(--maroon);">
     <div class="container">
         <a class="navbar-brand" href="dashboard.php">Blood Donation System</a>
-        <div class="d-flex">
-            <span class="navbar-text text-white me-3">
-                Welcome, <?= htmlspecialchars($_SESSION['full_name'] ?? 'User') ?>
-            </span>
-            <a href="logout.php" class="btn btn-outline-light btn-sm">Logout</a>
-        </div>
+        <a href="logout.php" class="btn btn-outline-light btn-sm">Logout</a>
     </div>
 </nav>
 
-<div class="container mt-5" style="max-width: 600px;">
-    <h2>Add Donation</h2>
+<div class="container mt-5" style="max-width: 500px;">
+    <h2 style="color: var(--maroon);">Add Donation</h2>
 
-    <?php if ($success): ?>
+    <?php if ($errors): ?>
+        <div class="alert alert-danger"><ul><?php foreach($errors as $e): ?><li><?= htmlspecialchars($e) ?></li><?php endforeach; ?></ul></div>
+    <?php elseif ($success): ?>
         <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
     <?php endif; ?>
 
-    <?php if ($errors): ?>
-        <div class="alert alert-danger">
-            <ul class="mb-0">
-                <?php foreach ($errors as $error): ?>
-                    <li><?= htmlspecialchars($error) ?></li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-    <?php endif; ?>
-
-    <form action="add_donation.php" method="POST" novalidate>
+    <form action="add_donation.php" method="POST">
         <div class="mb-3">
-            <label for="event_id" class="form-label">Event *</label>
-            <select name="event_id" id="event_id" class="form-select" required>
-                <option value="">-- Select Event --</option>
-                <?php foreach ($events as $event): ?>
-                    <option value="<?= $event['event_id'] ?>" <?= (($_POST['event_id'] ?? '') == $event['event_id']) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($event['event_name']) ?>
-                    </option>
+            <label for="event_id" class="form-label">Event</label>
+            <select id="event_id" name="event_id" class="form-select" required>
+                <option value="">Select Event</option>
+                <?php foreach($events as $event): ?>
+                    <option value="<?= $event['event_id'] ?>"><?= htmlspecialchars($event['event_name'] . ' at ' . $event['location']) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
-
         <div class="mb-3">
-            <label for="blood_unit_id" class="form-label">Blood Unit *</label>
-            <select name="blood_unit_id" id="blood_unit_id" class="form-select" required>
-                <option value="">-- Select Blood Unit --</option>
-                <?php foreach ($blood_units as $unit): ?>
-                    <option value="<?= $unit['blood_unit_id'] ?>" <?= (($_POST['blood_unit_id'] ?? '') == $unit['blood_unit_id']) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($unit['blood_group'] . " " . $unit['rh_factor']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+            <label for="donation_date" class="form-label">Donation Date</label>
+            <input type="date" id="donation_date" name="donation_date" class="form-control" required>
         </div>
-
         <div class="mb-3">
-            <label for="donation_date" class="form-label">Donation Date *</label>
-            <input type="date" name="donation_date" id="donation_date" class="form-control" 
-                   value="<?= htmlspecialchars($_POST['donation_date'] ?? date('Y-m-d')) ?>" required />
+            <label for="quantity_ml" class="form-label">Quantity (ml)</label>
+            <input type="number" min="1" id="quantity_ml" name="quantity_ml" class="form-control" required>
         </div>
-
         <div class="mb-3">
-            <label for="quantity_ml" class="form-label">Quantity (ml) *</label>
-            <input type="number" name="quantity_ml" id="quantity_ml" class="form-control" 
-                   value="<?= htmlspecialchars($_POST['quantity_ml'] ?? '') ?>" min="1" required />
+            <label for="remarks" class="form-label">Remarks</label>
+            <textarea id="remarks" name="remarks" class="form-control"></textarea>
         </div>
-
-        <div class="mb-3">
-            <label for="remarks" class="form-label">Remarks (Optional)</label>
-            <textarea name="remarks" id="remarks" class="form-control"><?= htmlspecialchars($_POST['remarks'] ?? '') ?></textarea>
-        </div>
-
-        <button type="submit" class="btn btn-maroon text-white">Add Donation</button>
-        <a href="dashboard.php" class="btn btn-secondary ms-2">Back to Dashboard</a>
+        <button type="submit" class="btn btn-maroon w-100">Submit Donation</button>
     </form>
+    <p class="mt-3"><a href="dashboard.php" style="color: var(--maroon);">Back to Dashboard</a></p>
 </div>
 </body>
 </html>

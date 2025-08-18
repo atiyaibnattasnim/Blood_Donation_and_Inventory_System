@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 13, 2025 at 03:24 AM
+-- Generation Time: Aug 18, 2025 at 03:43 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.0.30
 
@@ -36,7 +36,7 @@ CREATE TABLE `admin` (
 --
 
 INSERT INTO `admin` (`user_id`) VALUES
-(13);
+(17);
 
 -- --------------------------------------------------------
 
@@ -54,6 +54,21 @@ CREATE TABLE `blood_unit` (
   `storage_id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `blood_unit`
+--
+
+INSERT INTO `blood_unit` (`blood_unit_id`, `blood_group`, `rh_factor`, `collection_date`, `expiry_date`, `status`, `storage_id`) VALUES
+(1, 'A', '+', '2025-08-01', '2025-09-12', 'available', 1),
+(2, 'O', '-', '2025-08-05', '2025-09-16', 'available', 2),
+(3, 'B', '+', '2025-08-10', '2025-09-21', 'available', 3),
+(4, 'AB', '+', '2025-08-15', '2025-09-26', 'available', 4),
+(5, 'A', '-', '2025-08-20', '2025-10-01', 'reserved', 5),
+(6, 'AB', '+', '2025-08-17', '2025-09-28', 'available', 1),
+(7, 'AB', '+', '2025-08-19', '2025-09-30', 'available', 1),
+(8, 'AB', '+', '2025-08-15', '2025-09-26', 'available', 7),
+(9, 'AB', '+', '2025-08-07', '2025-09-18', 'available', 1);
+
 -- --------------------------------------------------------
 
 --
@@ -69,6 +84,20 @@ CREATE TABLE `donation` (
   `remarks` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `donation`
+--
+
+INSERT INTO `donation` (`user_id`, `event_id`, `blood_unit_id`, `donation_date`, `quantity_ml`, `remarks`) VALUES
+(1, 1, 1, '2025-08-01', 450, 'First donation at Dhaka camp'),
+(4, 2, 2, '2025-08-05', 450, 'Chattogram drive donation'),
+(7, 1, 6, '2025-08-17', 2, ''),
+(7, 2, 7, '2025-08-19', 3, ''),
+(7, 3, 3, '2025-08-10', 450, 'Healthy donor'),
+(7, 3, 9, '2025-08-07', 2, ''),
+(9, 4, 4, '2025-08-15', 450, NULL),
+(18, 5, 5, '2025-08-20', 450, 'Urgent donation');
+
 -- --------------------------------------------------------
 
 --
@@ -82,6 +111,18 @@ CREATE TABLE `donation_appointment` (
   `location` varchar(100) NOT NULL,
   `appointment_status` enum('scheduled','completed','cancelled') DEFAULT 'scheduled'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `donation_appointment`
+--
+
+INSERT INTO `donation_appointment` (`appointment_id`, `user_id`, `scheduled_date`, `location`, `appointment_status`) VALUES
+(1, 1, '2025-09-05', 'Dhaka Medical College Hospital', 'scheduled'),
+(2, 4, '2025-09-10', 'Chattogram Medical College Hospital', 'scheduled'),
+(3, 7, '2025-09-12', 'Sylhet MAG Osmani Medical College', 'completed'),
+(4, 9, '2025-09-15', 'Rajshahi Medical College Hospital', 'scheduled'),
+(5, 18, '2025-09-20', 'Evercare Hospital Dhaka', 'cancelled'),
+(6, 7, '2025-08-18', 'ABC', 'scheduled');
 
 -- --------------------------------------------------------
 
@@ -102,10 +143,12 @@ CREATE TABLE `donor` (
 --
 
 INSERT INTO `donor` (`user_id`, `blood_group`, `rh_factor`, `eligibility_status`, `donation_count`) VALUES
-(1, 'A', '+', 'pending', 0),
-(4, 'A', '+', 'pending', 0),
-(7, 'AB', '+', 'pending', 0),
-(9, 'AB', '+', 'pending', 0);
+(1, 'A', '+', 'eligible', 1),
+(4, 'A', '+', 'eligible', 1),
+(7, 'AB', '+', 'eligible', 4),
+(9, 'AB', '+', 'eligible', 1),
+(18, 'A', '+', 'eligible', 1),
+(20, 'AB', '-', 'pending', 0);
 
 -- --------------------------------------------------------
 
@@ -120,6 +163,17 @@ CREATE TABLE `donor_health_record` (
   `hemoglobin_level` decimal(4,1) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `donor_health_record`
+--
+
+INSERT INTO `donor_health_record` (`donor_id`, `checkup_date`, `blood_pressure`, `hemoglobin_level`) VALUES
+(1, '2025-07-25', '120/80', 13.5),
+(4, '2025-07-30', '118/76', 14.0),
+(7, '2025-08-01', '125/82', 13.8),
+(9, '2025-08-05', '130/85', 12.9),
+(18, '2025-08-10', '122/78', 13.2);
+
 -- --------------------------------------------------------
 
 --
@@ -133,6 +187,17 @@ CREATE TABLE `event_` (
   `event_date` date NOT NULL,
   `organizer_id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `event_`
+--
+
+INSERT INTO `event_` (`event_id`, `event_name`, `location`, `event_date`, `organizer_id`) VALUES
+(1, 'Dhaka Blood Drive 2025', 'Dhaka Medical College Hospital, Dhaka', '2025-09-01', 1),
+(2, 'Chattogram Donation Camp', 'Chattogram Medical College Hospital, Chattogram', '2025-09-10', 3),
+(3, 'Sylhet Community Drive', 'Sylhet MAG Osmani Medical College Hospital, Sylhet', '2025-09-15', 2),
+(4, 'Rajshahi Health Fair', 'Rajshahi Medical College Hospital, Rajshahi', '2025-09-20', 4),
+(5, 'Quantum Blood Camp', 'Bashundhara Convention Center, Dhaka', '2025-10-01', 5);
 
 -- --------------------------------------------------------
 
@@ -158,13 +223,11 @@ INSERT INTO `hospital` (`hospital_id`, `name`, `city`, `street`, `postal_code`) 
 (3, 'Square Hospitals Ltd.', 'Dhaka', '18/F Bir Uttam Qazi Nuruzzaman Sarak', '1205'),
 (4, 'United Hospital Ltd.', 'Dhaka', 'Plot 15, Road 71, Gulshan', '1212'),
 (5, 'Evercare Hospital Dhaka', 'Dhaka', 'Plot 81, Block E, Bashundhara R/A', '1229'),
-(6, 'Chattogram Medical College Hospital', 'Chattogram', 'Probartok Circle', '4000'),
+(6, 'Chattogram Medical College Hospital', 'Chattogram', 'Probartok Circle', '4002'),
 (7, 'Imperial Hospital Limited', 'Chattogram', 'Zakir Hossain Road', '4215'),
 (8, 'Sylhet MAG Osmani Medical College Hospital', 'Sylhet', 'Medical Road', '3100'),
 (9, 'Rajshahi Medical College Hospital', 'Rajshahi', 'Laxmipur', '6000'),
-(10, 'Khulna Medical College Hospital', 'Khulna', 'Boyra', '9000'),
-(11, 'Abc', 'Dhaka', 'Abc', '1207'),
-(12, 'Abc', 'Dhaka', 'Abc', '1207');
+(10, 'Khulna Medical College Hospital', 'Khulna', 'Boyra', '9000');
 
 -- --------------------------------------------------------
 
@@ -176,6 +239,22 @@ CREATE TABLE `hospital_phone_no` (
   `hospital_id` int(11) NOT NULL,
   `phone_number` varchar(20) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `hospital_phone_no`
+--
+
+INSERT INTO `hospital_phone_no` (`hospital_id`, `phone_number`) VALUES
+(1, '+880-2-55165600'),
+(2, '+880-2-9660015'),
+(3, '+880-2-8836000'),
+(4, '+880-2-9852466'),
+(5, '+880-2-55037242'),
+(6, '+880-31-656565'),
+(7, '+880-31-627913'),
+(8, '+880-821-721151'),
+(9, '+880-721-774432'),
+(10, '+880-41-760350');
 
 -- --------------------------------------------------------
 
@@ -196,7 +275,8 @@ CREATE TABLE `hospital_representative` (
 --
 
 INSERT INTO `hospital_representative` (`user_id`, `hospital_id`, `department`, `designation`, `license_id`) VALUES
-(11, 3, 'Cardiology', 'Supervisor', '223');
+(11, 3, 'Cardiology', 'Supervisor', '223'),
+(16, 1, 'ab', 'abc', '22');
 
 -- --------------------------------------------------------
 
@@ -210,6 +290,15 @@ CREATE TABLE `inventory_manager` (
   `start_date` date NOT NULL,
   `end_date` date DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `inventory_manager`
+--
+
+INSERT INTO `inventory_manager` (`manager_id`, `user_id`, `start_date`, `end_date`) VALUES
+(1, 11, '2025-08-01', NULL),
+(2, 16, '2025-08-05', NULL),
+(3, 16, '2025-08-17', NULL);
 
 -- --------------------------------------------------------
 
@@ -234,11 +323,16 @@ INSERT INTO `login_credentials` (`user_id`, `username`, `password`, `account_sta
 (5, 'a.b@gmail.com', '$2y$10$RaGZRZpUtT3XxEBzkpDTy.MyucIz.VjTzoA5l5Do5YRLQbijzgS3y', 'active'),
 (6, 'ab.cd@gmail.com', '$2y$10$FMH8wkTcfxpG4438FuTfG.okvXRiYIeh7vbnymRDBk4Fn7Z7aLK6C', 'active'),
 (7, 'selina.islam@gmail.com', '$2y$10$8y7yiQQ6rdMXEqK68S6lGOKXqv02xDXbohva8T4pxunqXty8gDSNy', 'active'),
-(8, 'saiful.islam@gmail.com', '$2y$10$Zv9k.HaD//CByQcKDyZrhuQp3cffI5f46JTudJDmZlXt46zELGINe', 'active'),
 (9, 'anika.shormily@gmail.com', '$2y$10$h..7tsemeRhGIF0KCNJc7Ol7MXUZKzRMElrdAzOILCEPbQRiJJ/Xy', 'active'),
-(10, 'abc@gmail.com', '$2y$10$fzFsACqAkHTN1GiOV/EUyebx61Fxme/p1Cr2/13hhxPY5ofsH11cy', 'active'),
 (11, 'abcd@gmail.com', '$2y$10$wheDlbLxY.gvbU.m33VlVO8qojOsz1YVLYC7yPO36oitOQn/.k756', 'active'),
-(13, 'atiya.ibnat@gmail.com', '$2y$10$hxLVJ/GyGlA4aB.iTvGZw.3J.Q2ukcCUDXgV9zoOI4QLDekDKMYbK', 'active');
+(13, 'atiya.ibnat@gmail.com', '$2y$10$hxLVJ/GyGlA4aB.iTvGZw.3J.Q2ukcCUDXgV9zoOI4QLDekDKMYbK', 'active'),
+(14, 'antara.labiba@gmail.com', '$2y$10$gXI.aGzSPe5NACqDuM.N1ulyHtAS7E8vlYuSay1pDiHVKmo7EbIxe', 'active'),
+(16, 'antara.tamoha@gmail.com', '$2y$10$FN7tMDyf.iY0t74IPBPchuCb57yx83r2eFfawuZ9hLTCcUEvQY8NG', 'active'),
+(17, 'admin@gmail.com', '$2y$10$f0kw7xZM5u95Z37DRZkuR.ex9sfXwAM.QOEx8LuglpeZEiXCWA7Tm', 'active'),
+(18, 'atiyaibnattasnim@gmail.com', '$2y$10$rssJrW5m08qyGn2AiN4iB.eUTNSD5bOB6vxsXO041vCNC/vsTVAMO', 'active'),
+(19, 'meena.akter@gmail.com', '$2y$10$FI2W3OdkLN43aS/8TgliquN67.EVtgTW38pflj7zujSlvwpD.u.cC', 'active'),
+(20, 'raju.islam@gmail.com', '$2y$10$/SzF9jrCnY3tr6AYUdDDoOCGBZBYCMiWWezr4tAwB0dyvwmWIuTNa', 'active'),
+(21, 'saiful.islam@gmail.com', '$2y$10$JExdLmSZGE0Q.UPQb9kk0u7VgcEqEZkjvky3GcsG4M.oVlCW9j8ca', 'active');
 
 -- --------------------------------------------------------
 
@@ -251,6 +345,17 @@ CREATE TABLE `organizer` (
   `organizer_name` varchar(100) NOT NULL,
   `organizer_type` enum('hospital','ngo','community_group','other') NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `organizer`
+--
+
+INSERT INTO `organizer` (`organizer_id`, `organizer_name`, `organizer_type`) VALUES
+(1, 'Bangladesh Red Crescent Society', 'ngo'),
+(2, 'BRAC', 'ngo'),
+(3, 'Sandhani', 'community_group'),
+(4, 'Dhaka Medical College Hospital', 'hospital'),
+(5, 'Quantum Foundation', 'other');
 
 -- --------------------------------------------------------
 
@@ -272,7 +377,9 @@ CREATE TABLE `recipient` (
 --
 
 INSERT INTO `recipient` (`user_id`, `medical_condition`, `blood_group`, `rh_factor`, `urgency_level`, `hospital_id`) VALUES
-(5, '', 'A', '+', 'Medium', 3);
+(5, '', 'A', '+', 'Medium', 3),
+(19, '', 'AB', '+', 'High', 1),
+(21, '', 'AB', '+', 'Medium', NULL);
 
 -- --------------------------------------------------------
 
@@ -303,7 +410,14 @@ INSERT INTO `request` (`request_id`, `user_id`, `blood_group`, `rh_factor`, `qua
 (6, 11, 'AB', '-', 5, '2025-08-12', 'pending'),
 (7, 11, 'AB', '-', 5, '2025-08-12', 'pending'),
 (8, 5, 'AB', '+', 4, '2025-08-12', 'pending'),
-(9, 5, 'AB', '+', 4, '2025-08-12', 'pending');
+(9, 5, 'AB', '+', 4, '2025-08-12', 'pending'),
+(10, 16, 'AB', '+', 4, '2025-08-16', 'pending'),
+(11, 16, 'O', '-', 1, '2025-08-16', 'pending'),
+(12, 16, 'B', '+', 2, '2025-08-16', 'pending'),
+(13, 19, 'AB', '+', 4, '2025-08-16', 'pending'),
+(14, 21, 'AB', '+', 3, '2025-08-17', 'pending'),
+(15, 21, 'AB', '+', 3, '2025-08-17', 'pending'),
+(16, 21, 'AB', '+', 4, '2025-08-17', 'pending');
 
 -- --------------------------------------------------------
 
@@ -318,8 +432,26 @@ CREATE TABLE `storage` (
   `fridge_number` varchar(20) NOT NULL,
   `shelf_number` varchar(20) DEFAULT NULL,
   `capacity` int(11) NOT NULL,
-  `temperature` decimal(4,1) DEFAULT NULL
+  `temperature` decimal(4,1) DEFAULT NULL,
+  `blood_group` enum('A','B','AB','O') NOT NULL,
+  `rh_factor` enum('+','-') NOT NULL,
+  `quantity_ml` int(11) DEFAULT 0,
+  `last_updated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `storage`
+--
+
+INSERT INTO `storage` (`storage_id`, `hospital_id`, `location_name`, `fridge_number`, `shelf_number`, `capacity`, `temperature`, `blood_group`, `rh_factor`, `quantity_ml`, `last_updated`) VALUES
+(1, 1, 'Main Blood Bank', 'FR01', 'S01', 10000, 4.0, 'A', '+', 450, '2025-08-17 14:22:53'),
+(2, 1, 'Emergency Ward', 'FR02', 'S02', 5000, 4.0, 'O', '-', 450, '2025-08-17 14:22:53'),
+(3, 2, 'Central Storage', 'FR03', 'S01', 8000, 4.0, 'B', '+', 450, '2025-08-17 14:22:53'),
+(4, 3, 'Lab Storage', 'FR04', 'S03', 6000, 4.0, 'AB', '+', 450, '2025-08-17 14:22:53'),
+(5, 4, 'Blood Bank A', 'FR05', 'S01', 7000, 4.0, 'A', '-', 450, '2025-08-17 14:22:53'),
+(6, 6, 'Chattogram Main', 'FR06', 'S02', 9000, 4.0, 'O', '+', 0, '2025-08-17 14:21:17'),
+(7, 1, 'Abd', '3', '2', 2, 4.0, 'B', '+', 450, '2025-08-17 14:38:01'),
+(8, 1, 'Abd', '3', '2', 2, 4.0, 'B', '+', 0, '2025-08-17 14:38:23');
 
 -- --------------------------------------------------------
 
@@ -348,11 +480,16 @@ INSERT INTO `user` (`user_id`, `first_name`, `last_name`, `email`, `city`, `stre
 (5, 'A', 'B', 'a.b@gmail.com', 'Dhaka', '123', '1209', '2002-04-12'),
 (6, 'AB', 'CD', 'ab.cd@gmail.com', 'Dhaka', '123', '1209', '2002-04-12'),
 (7, 'Selina', 'Islam', 'selina.islam@gmail.com', 'Dhaka', '111', '1207', '1967-01-01'),
-(8, 'Saiful', 'Islam', 'saiful.islam@gmail.com', 'Dhaka', '112', '1209', '1965-01-01'),
 (9, 'Anika', 'Shormily', 'anika.shormily@gmail.com', 'Dhaka', '113', '1207', '1997-05-02'),
-(10, 'abc', 'abc', 'abc@gmail.com', '', '', '', '0000-00-00'),
-(11, 'abcd', 'abcd', 'abcd@gmail.com', '', '', '', '0000-00-00'),
-(13, 'Atiya', 'Ibnat', 'atiya.ibnat@gmail.com', 'Dhaka', '143', '1207', '2002-04-03');
+(11, 'abcd', 'abcd', 'abcd@gmail.com', '', '', '', NULL),
+(13, 'Atiya', 'Ibnat', 'atiya.ibnat@gmail.com', 'Dhaka', '143', '1207', '2002-04-03'),
+(14, 'Antara', 'Labiba', 'antara.labiba@gmail.com', '', '', '', NULL),
+(16, 'Antara', 'Tamoha', 'antara.tamoha@gmail.com', 'Dhaka', '1st', '1216', '2025-07-27'),
+(17, 'Admin', 'User', 'admin@gmail.com', 'Admin City', '123 Admin St', '12345', '1980-01-01'),
+(18, 'Atiya Ibnat', 'Tasnim', 'atiyaibnattasnim@gmail.com', '', '', '', '0000-00-00'),
+(19, 'Meena', 'Akter', 'meena.akter@gmail.com', 'Chattogram', 'Probartok Circle', '1217', '2025-08-07'),
+(20, 'Raju', 'Islam', 'raju.islam@gmail.com', 'Dhaka', 'abc', '1234', '2025-08-04'),
+(21, 'Saiful', 'Islam', 'saiful.islam@gmail.com', 'Dhaka', '6th', '1217', '2025-07-29');
 
 -- --------------------------------------------------------
 
@@ -364,6 +501,13 @@ CREATE TABLE `user_phone_no` (
   `user_id` int(11) NOT NULL,
   `phone_number` varchar(20) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `user_phone_no`
+--
+
+INSERT INTO `user_phone_no` (`user_id`, `phone_number`) VALUES
+(16, '01611396659');
 
 --
 -- Indexes for dumped tables
@@ -498,55 +642,55 @@ ALTER TABLE `user_phone_no`
 -- AUTO_INCREMENT for table `blood_unit`
 --
 ALTER TABLE `blood_unit`
-  MODIFY `blood_unit_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `blood_unit_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `donation_appointment`
 --
 ALTER TABLE `donation_appointment`
-  MODIFY `appointment_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `appointment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `event_`
 --
 ALTER TABLE `event_`
-  MODIFY `event_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `event_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `hospital`
 --
 ALTER TABLE `hospital`
-  MODIFY `hospital_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `hospital_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `inventory_manager`
 --
 ALTER TABLE `inventory_manager`
-  MODIFY `manager_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `manager_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `organizer`
 --
 ALTER TABLE `organizer`
-  MODIFY `organizer_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `organizer_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `request`
 --
 ALTER TABLE `request`
-  MODIFY `request_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `request_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `storage`
 --
 ALTER TABLE `storage`
-  MODIFY `storage_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `storage_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `user`
 --
 ALTER TABLE `user`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- Constraints for dumped tables

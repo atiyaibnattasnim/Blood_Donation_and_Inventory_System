@@ -2,119 +2,124 @@
 session_start();
 include 'db.php';
 
-// Check role
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'hospital_rep') {
-    header("Location: access_denied.php");
-    exit();
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'hospital_rep') {
+    header("Location: login.php");
+    exit;
 }
 
-$hospital_id = $_SESSION['hospital_id'] ?? null;
-if (!$hospital_id) {
-    die("Hospital ID not found in session. Please log in again.");
-}
-
-// Fetch blood inventory for this hospital
-$sql_inventory = "SELECT blood_group, quantity_ml FROM inventory WHERE hospital_id = ?";
-$stmt = $conn->prepare($sql_inventory);
-$stmt->bind_param("i", $hospital_id);
+// Fetch hospital_id for this rep
+$stmt = $conn->prepare("SELECT hospital_id FROM hospital_representative WHERE user_id = ?");
+$stmt->bind_param("i", $_SESSION['user_id']);
 $stmt->execute();
-$result_inventory = $stmt->get_result();
+$result = $stmt->get_result();
+$hospital_id = $result->num_rows > 0 ? $result->fetch_assoc()['hospital_id'] : null;
+$stmt->close();
 
-// Fetch requests summary
-$sql_requests = "SELECT status, COUNT(*) AS count FROM request r
-                 JOIN recipient rec ON r.user_id = rec.user_id
-                 WHERE rec.hospital_id = ?
-                 GROUP BY status";
-$stmt2 = $conn->prepare($sql_requests);
-$stmt2->bind_param("i", $hospital_id);
-$stmt2->execute();
-$result_requests = $stmt2->get_result();
+if (!$hospital_id) {
+    die("Error: No hospital assigned to this representative.");
+}
 
-// (Optional) Fetch total donations made to this hospital if tracked, else skip
+// Total inventory by blood group
+$inventory_query = "SELECT blood_group, rh_factor, SUM(quantity_ml) as total_ml 
+                    FROM storage 
+                    WHERE hospital_id = $hospital_id 
+                    GROUP BY blood_group, rh_factor";
+$inventory = $conn->query($inventory_query);
+if (!$inventory) {
+    die("Inventory query failed: " . $conn->error);
+}
 
+// Recent donations (simplified to show donations linked to hospital via storage)
+$donations_query = "SELECT d.*, bu.blood_group, bu.rh_factor 
+                    FROM donation d 
+                    JOIN blood_unit bu ON d.blood_unit_id = bu.blood_unit_id 
+                    JOIN storage s ON bu.storage_id = s.storage_id 
+                    WHERE s.hospital_id = $hospital_id 
+                    LIMIT 10";
+$donations = $conn->query($donations_query);
+if (!$donations) {
+    die("Donations query failed: " . $conn->error);
+}
+
+// Requests (hospital-specific or user-specific)
+$requests_query = "SELECT r.* 
+                   FROM request r 
+                   JOIN hospital_representative hr ON r.user_id = hr.user_id 
+                   WHERE hr.hospital_id = $hospital_id";
+$requests = $conn->query($requests_query);
+if (!$requests) {
+    die("Requests query failed: " . $conn->error);
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Hospital Reports</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Generate Reports</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <style>
-        body {
-            background-color: #f9f7f7;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding: 2rem;
-        }
-        h2 {
-            color: #800000;
-            margin-bottom: 1rem;
-        }
-        table {
-            width: 100%;
-            margin-bottom: 2rem;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: center;
-        }
-        th {
-            background-color: #a52a2a;
-            color: white;
-        }
-        .card {
-            margin-bottom: 2rem;
-            padding: 1rem;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(128,0,0,0.1);
-        }
+        :root { --maroon: #800000; }
+        h2, h3 { color: var(--maroon); }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: var(--maroon); color: white; }
     </style>
 </head>
 <body>
+<nav class="navbar navbar-expand-lg navbar-dark" style="background-color: var(--maroon);">
+    <div class="container">
+        <a class="navbar-brand" href="dashboard.php">Blood Donation System</a>
+        <a href="logout.php" class="btn btn-outline-light btn-sm">Logout</a>
+    </div>
+</nav>
 
-    <h2>Reports for Hospital ID: <?= htmlspecialchars($hospital_id) ?></h2>
+<div class="container mt-5">
+    <h2>Reports</h2>
 
-    <div class="card">
-        <h4>Current Blood Inventory</h4>
-        <table>
-            <thead>
-                <tr><th>Blood Group</th><th>Quantity (ml)</th></tr>
-            </thead>
+    <h3>Inventory Summary</h3>
+    <?php if ($inventory->num_rows > 0): ?>
+        <table class="table">
+            <thead><tr><th>Blood Group</th><th>Total (ml)</th></tr></thead>
             <tbody>
-                <?php while ($row = $result_inventory->fetch_assoc()) { ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['blood_group']) ?></td>
-                        <td><?= htmlspecialchars($row['quantity_ml']) ?></td>
-                    </tr>
-                <?php } ?>
+                <?php while ($row = $inventory->fetch_assoc()): ?>
+                    <tr><td><?= htmlspecialchars($row['blood_group'] . $row['rh_factor']) ?></td><td><?= $row['total_ml'] ?></td></tr>
+                <?php endwhile; ?>
             </tbody>
         </table>
-    </div>
+    <?php else: ?>
+        <p>No inventory data available.</p>
+    <?php endif; ?>
 
-    <div class="card">
-        <h4>Requests Summary</h4>
-        <table>
-            <thead>
-                <tr><th>Status</th><th>Count</th></tr>
-            </thead>
+    <h3>Recent Donations</h3>
+    <?php if ($donations->num_rows > 0): ?>
+        <table class="table">
+            <thead><tr><th>Date</th><th>Quantity (ml)</th><th>Blood Group</th></tr></thead>
             <tbody>
-                <?php 
-                $statuses = ['pending' => 0, 'approved' => 0, 'rejected' => 0];
-                while ($row = $result_requests->fetch_assoc()) {
-                    $statuses[$row['status']] = $row['count'];
-                }
-                foreach ($statuses as $status => $count) { ?>
-                    <tr>
-                        <td><?= ucfirst($status) ?></td>
-                        <td><?= $count ?></td>
-                    </tr>
-                <?php } ?>
+                <?php while ($row = $donations->fetch_assoc()): ?>
+                    <tr><td><?= htmlspecialchars($row['donation_date']) ?></td><td><?= $row['quantity_ml'] ?></td><td><?= htmlspecialchars($row['blood_group'] . $row['rh_factor']) ?></td></tr>
+                <?php endwhile; ?>
             </tbody>
         </table>
-    </div>
+    <?php else: ?>
+        <p>No recent donations.</p>
+    <?php endif; ?>
 
+    <h3>Blood Requests</h3>
+    <?php if ($requests->num_rows > 0): ?>
+        <table class="table">
+            <thead><tr><th>Date</th><th>Blood Group</th><th>Quantity (ml)</th><th>Status</th></tr></thead>
+            <tbody>
+                <?php while ($row = $requests->fetch_assoc()): ?>
+                    <tr><td><?= htmlspecialchars($row['request_date']) ?></td><td><?= htmlspecialchars($row['blood_group'] . $row['rh_factor']) ?></td><td><?= $row['quantity_ml'] ?></td><td><?= htmlspecialchars($row['status']) ?></td></tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
+    <?php else: ?>
+        <p>No blood requests found.</p>
+    <?php endif; ?>
+
+    <a href="dashboard.php" style="color: var(--maroon);">Back to Dashboard</a>
+</div>
 </body>
 </html>
