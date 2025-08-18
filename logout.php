@@ -1,7 +1,7 @@
 <?php
 session_start();
-echo '<pre>';
-print_r($_SESSION);
-echo '</pre>';
-exit();
+session_unset();
+session_destroy();
+header("Location: login.php");
+exit;
 ?>

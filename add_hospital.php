@@ -22,7 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        $stmt = $conn->prepare("INSERT INTO hospital (name, city, street, postal_code) VALUES (?, ?, ?, ?)");
+        $stmt = $conn->prepare("INSERT INTO hospital (name, city, street, postal_code) 
+                                VALUES (?, ?, ?, ?)");
         $stmt->bind_param("ssss", $name, $city, $street, $postal_code);
         if ($stmt->execute()) {
             $success = "Hospital added successfully.";

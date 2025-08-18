@@ -8,6 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
+$full_name = $_SESSION['full_name'] ?? 'User';
 
 $sql = "
     SELECT d.donation_date, d.quantity_ml, d.remarks,
@@ -29,60 +30,110 @@ if ($stmt->execute()) {
     die("Failed to retrieve donations. Please try again later.");
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Your Donations</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta charset="UTF-8"/>
+    <title>Your Donations - Blood Donation System</title>
     <style>
-      .bg-maroon {
-        background-color: #800000 !important;
-      }
+        body {
+            background-color: #f8f8f8;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .navbar {
+            background-color: #800000;
+            padding: 10px;
+        }
+        .navbar a, .navbar span {
+            color: #fff;
+            text-decoration: none;
+            margin-right: 10px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        h2 {
+            color: #800000;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #800000;
+            color: #fff;
+        }
+        a {
+            color: #800000;
+            text-decoration: none;
+        }
+        footer {
+            background-color: #f0f0f0;
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            color: #666;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-maroon">
-    <div class="container">
-        <a class="navbar-brand" href="dashboard.php">Blood Donation System</a>
-        <div class="d-flex">
-            <a href="dashboard.php" class="btn btn-outline-light btn-sm me-2">Dashboard</a>
-            <a href="logout.php" class="btn btn-outline-light btn-sm">Logout</a>
+    <div class="navbar">
+        <div style="max-width: 800px; margin: 0 auto;">
+            <a href="dashboard.php">Blood Donation System</a>
+            <span>Hello, <?= htmlspecialchars($full_name) ?></span>
+            <a href="dashboard.php">Dashboard</a>
+            <a href="logout.php">Logout</a>
         </div>
     </div>
-</nav>
 
-<div class="container mt-4">
-    <h2>Your Donation History</h2>
+    <div class="container">
+        <h2>Your Donation History</h2>
 
-    <?php if ($result->num_rows > 0): ?>
-        <table class="table table-bordered table-striped mt-3">
-            <thead class="table-dark">
-                <tr>
-                    <th>Donation Date</th>
-                    <th>Event Name</th>
-                    <th>Blood Group</th>
-                    <th>Rh Factor</th>
-                    <th>Quantity (ml)</th>
-                    <th>Remarks</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php while ($row = $result->fetch_assoc()): ?>
-                <tr>
-                    <td><?= htmlspecialchars($row['donation_date']) ?></td>
-                    <td><?= htmlspecialchars($row['event_name'] ?? 'N/A') ?></td>
-                    <td><?= htmlspecialchars($row['blood_group'] ?? 'N/A') ?></td>
-                    <td><?= htmlspecialchars($row['rh_factor'] ?? 'N/A') ?></td>
-                    <td><?= htmlspecialchars($row['quantity_ml']) ?></td>
-                    <td><?= htmlspecialchars($row['remarks'] ?? '') ?></td>
-                </tr>
-                <?php endwhile; ?>
-            </tbody>
-        </table>
-    <?php else: ?>
-        <p>No donation records found.</p>
-    <?php endif; ?>
-</div>
+        <?php if ($result->num_rows > 0): ?>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Donation Date</th>
+                        <th>Event Name</th>
+                        <th>Blood Group</th>
+                        <th>Rh Factor</th>
+                        <th>Quantity (ml)</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php while ($row = $result->fetch_assoc()): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($row['donation_date']) ?></td>
+                            <td><?= htmlspecialchars($row['event_name'] ?? 'N/A') ?></td>
+                            <td><?= htmlspecialchars($row['blood_group'] ?? 'N/A') ?></td>
+                            <td><?= htmlspecialchars($row['rh_factor'] ?? 'N/A') ?></td>
+                            <td><?= htmlspecialchars($row['quantity_ml']) ?></td>
+                            <td><?= htmlspecialchars($row['remarks'] ?? '') ?></td>
+                        </tr>
+                    <?php endwhile; ?>
+                </tbody>
+            </table>
+        <?php else: ?>
+            <p>No donation records found.</p>
+        <?php endif; ?>
+    </div>
+
+    <footer>
+        &copy; <?= date('Y') ?> Blood Donation System. All rights reserved.
+    </footer>
 </body>
 </html>
